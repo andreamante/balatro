@@ -1,0 +1,311 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Nebula Deck, torna alla partita">
+      <span class="brand-mark" aria-hidden="true">✦</span>
+      <span>NEBULA<span class="brand-light">DECK</span></span>
+    </a>
+    <p class="topline">Un piccolo gioco, un grande universo</p>
+    <div class="top-actions">
+      <button class="icon-button help-trigger" type="button" (click)="openHelp()" aria-label="Apri le regole e i comandi da tastiera">
+        <span aria-hidden="true">?</span>
+        <span class="help-label">Aiuto</span>
+      </button>
+      <button class="text-button new-game-button" type="button" (click)="startNewGame()">
+        <span aria-hidden="true">↻</span> Nuova partita
+      </button>
+    </div>
+  </header>
+
+  @if (storageWarning()) {
+    <p class="storage-warning" role="status">{{ storageWarning() }}</p>
+  }
+
+  <main>
+    <section class="game-layout" aria-label="Tavolo di gioco Nebula Deck">
+      <div class="game-column">
+        <div class="round-heading">
+          <div>
+            <p class="eyebrow">LA TUA COSTELLAZIONE</p>
+            <h1>
+              @if (game().phase === 'shop') {
+                Una pausa tra le stelle
+              } @else if (game().phase === 'won') {
+                Hai attraversato l’universo
+              } @else if (game().phase === 'lost') {
+                Fine della corsa
+              } @else {
+                Orbita <span>{{ game().round }}</span>
+              }
+            </h1>
+          </div>
+          <div class="round-badge" aria-label="Round corrente">
+            <span class="round-dot" aria-hidden="true"></span>
+            {{ game().phase === 'shop' ? 'NEGOZIO' : 'ROUND ' + game().round + ' / 3' }}
+          </div>
+        </div>
+
+        @if (game().phase === 'playing') {
+          <section class="score-panel" aria-label="Punteggio del round">
+            <div class="score-numbers">
+              <div>
+                <p class="eyebrow">PUNTEGGIO</p>
+                <p class="score-value">{{ game().score }}<span> / {{ game().target }}</span></p>
+              </div>
+              <div class="score-target">
+                <span class="target-icon" aria-hidden="true">◎</span>
+                <span>Obiettivo <strong>{{ game().target }}</strong></span>
+              </div>
+            </div>
+            <div
+              class="progress-track"
+              role="progressbar"
+              aria-label="Progresso verso l'obiettivo"
+              [attr.aria-valuenow]="game().score"
+              [attr.aria-valuemin]="0"
+              [attr.aria-valuemax]="game().target"
+            >
+              <span class="progress-fill" [style.width.%]="progress()"></span>
+            </div>
+            <div class="round-resources">
+              <div class="resource">
+                <span class="resource-icon hands-icon" aria-hidden="true">▱</span>
+                <span><strong>{{ game().handsLeft }}</strong> mani</span>
+              </div>
+              <span class="resource-divider" aria-hidden="true"></span>
+              <div class="resource">
+                <span class="resource-icon discard-icon" aria-hidden="true">↗</span>
+                <span><strong>{{ game().discardsLeft }}</strong> scarti</span>
+              </div>
+              <span class="resource-divider" aria-hidden="true"></span>
+              <div class="resource money-resource">
+                <span class="resource-icon money-icon" aria-hidden="true">¤</span>
+                <span><strong>{{ game().money }}</strong> crediti</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="table-topline">
+              <div>
+                <p class="eyebrow">LA TUA MANO</p>
+                <p class="selection-hint">Scegli fino a 5 carte <span>·</span> {{ selectedIds().length }} selezionate</p>
+              </div>
+              <div class="sort-actions" aria-label="Ordina le carte">
+                <button class="sort-button" type="button" (click)="sortHand('rank')" aria-label="Ordina per valore, scorciatoia R">
+                  <span aria-hidden="true">↕</span><span>Valore</span>
+                </button>
+                <button class="sort-button" type="button" (click)="sortHand('suit')" aria-label="Ordina per seme, scorciatoia S">
+                  <span aria-hidden="true">♧</span><span>Seme</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="cards-row" role="list" aria-label="Carte in mano. Usa le frecce per muoverti e spazio per selezionare.">
+              @for (card of game().hand; track card.id; let i = $index) {
+                <div class="card-slot" role="listitem">
+                  <button
+                    #cardButton
+                    class="playing-card"
+                    [class.selected]="isSelected(card)"
+                    [class.scoring-card]="isScoringCard(card)"
+                    [class.red-suit]="card.suit === 'hearts' || card.suit === 'diamonds'"
+                    [class.black-suit]="card.suit === 'clubs' || card.suit === 'spades'"
+                    type="button"
+                    [attr.tabindex]="i === 0 ? 0 : -1"
+                    [attr.aria-label]="cardName(card) + (isSelected(card) ? ', selezionata' : '')"
+                    [attr.aria-pressed]="isSelected(card)"
+                    (click)="toggleCard(card)"
+                  >
+                    <span class="card-corner" aria-hidden="true">
+                      <span class="card-rank">{{ cardLabel(card) }}</span>
+                      <span class="card-suit">{{ suitSymbols[card.suit] }}</span>
+                    </span>
+                    <span class="card-center" aria-hidden="true">{{ suitSymbols[card.suit] }}</span>
+                    <span class="card-corner card-corner-bottom" aria-hidden="true">
+                      <span class="card-rank">{{ cardLabel(card) }}</span>
+                      <span class="card-suit">{{ suitSymbols[card.suit] }}</span>
+                    </span>
+                    @if (isSelected(card)) {
+                      <span class="selected-check" aria-hidden="true">✓</span>
+                    }
+                  </button>
+                </div>
+              } @empty {
+                <p class="empty-hand">Nessuna carta in mano.</p>
+              }
+            </div>
+
+            <div class="hand-actions">
+              <p class="keyboard-note"><kbd>Spazio</kbd> seleziona <span>·</span> <kbd>Enter</kbd> gioca <span>·</span> <kbd>X</kbd> scarta</p>
+              <div class="action-buttons">
+                <button class="secondary-button" type="button" (click)="discardHand()" [disabled]="game().discardsLeft === 0">
+                  <span aria-hidden="true">↗</span> Scarta
+                </button>
+                <button class="primary-button" type="button" (click)="playHand()">
+                  Gioca mano <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="joker-shelf" aria-label="Jolly in uso">
+            <div class="shelf-heading">
+              <div>
+                <p class="eyebrow">LA TUA COSTELLAZIONE</p>
+                <p class="shelf-caption">{{ game().jokers.length }} / 5 jolly attivi</p>
+              </div>
+              <span class="shelf-star" aria-hidden="true">✧</span>
+            </div>
+            <div class="joker-list">
+              @for (joker of game().jokers; track joker.id) {
+                <div class="owned-joker">
+                  <span class="joker-icon" aria-hidden="true">{{ jokerIcon(joker) }}</span>
+                  <span>{{ jokerName(joker) }}</span>
+                </div>
+              } @empty {
+                <p class="empty-jokers">I jolly che trovi nel negozio ti aiuteranno a raggiungere le stelle.</p>
+              }
+            </div>
+          </section>
+        } @else if (game().phase === 'shop') {
+          <section class="intermission-panel" aria-labelledby="shop-heading">
+            <div class="intermission-icon" aria-hidden="true">✧</div>
+            <p class="eyebrow">ROTTA TRACCIATA</p>
+            <h2 id="shop-heading">La prossima orbita ti aspetta.</h2>
+            <p class="intermission-copy">
+              Hai superato l’obiettivo e guadagnato crediti. Scegli un jolly per rendere più potente la tua prossima mano.
+            </p>
+            <div class="shop-grid">
+              @for (offer of game().offers; track offer.id) {
+                <article class="shop-card">
+                  <span class="shop-joker-icon" aria-hidden="true">
+                    @switch (offer.id) {
+                      @case ('comet') { ✦ }
+                      @case ('pulsar') { ✧ }
+                      @default { ◐ }
+                    }
+                  </span>
+                  <div class="shop-card-copy">
+                    <h3>{{ offer.name }}</h3>
+                    <p>{{ offer.description }}</p>
+                  </div>
+                  <button
+                    class="buy-button"
+                    type="button"
+                    [disabled]="game().money < offer.price || game().jokers.length >= 5"
+                    (click)="buy(offer.id)"
+                    [attr.aria-label]="'Compra ' + offer.name + ' per ' + offer.price + ' crediti'"
+                  >
+                    <span>¤ {{ offer.price }}</span><span>Compra</span>
+                  </button>
+                </article>
+              } @empty {
+                <p class="shop-empty">Hai acquistato tutti i jolly disponibili.</p>
+              }
+            </div>
+            <div class="shop-footer">
+              <p><span aria-hidden="true">¤</span> {{ game().money }} crediti disponibili</p>
+              <button class="primary-button" type="button" (click)="continueToNextRound()">
+                Prossima orbita <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </section>
+        } @else {
+          <section class="end-panel" aria-labelledby="end-heading">
+            <span class="end-orbit" aria-hidden="true">{{ game().phase === 'won' ? '✦' : '◌' }}</span>
+            <p class="eyebrow">{{ game().phase === 'won' ? 'MISSIONE COMPLETATA' : 'OGNI STELLA HA LA SUA ORBITA' }}</p>
+            <h2 id="end-heading">{{ game().phase === 'won' ? 'Hai conquistato la galassia.' : 'Questa volta le stelle erano lontane.' }}</h2>
+            <p class="end-score">Punteggio finale <strong>{{ game().score }}</strong></p>
+            <button class="primary-button" type="button" (click)="startNewGame()">Gioca ancora <span aria-hidden="true">→</span></button>
+          </section>
+        }
+      </div>
+
+      <aside class="side-column" aria-label="Riepilogo partita">
+        <section class="score-summary">
+          <div class="summary-heading">
+            <span class="summary-icon" aria-hidden="true">✧</span>
+            <div><p class="eyebrow">OBIETTIVO</p><p class="summary-title">Orbita {{ game().round }}</p></div>
+          </div>
+          <div class="summary-value">{{ game().score }}<span> pt</span></div>
+          <div class="summary-rule"></div>
+          <div class="summary-target"><span>Da raggiungere</span><strong>{{ game().target }} pt</strong></div>
+          @if (game().lastResult) {
+            <div class="last-hand">
+              <p class="eyebrow">ULTIMA MANO</p>
+              <strong>{{ game().lastResult?.name }}</strong>
+              <span>({{ game().lastResult?.chips }} + {{ game().lastResult?.cardPoints }}) × {{ game().lastResult?.multiplier }}</span>
+              <b>+{{ game().lastResult?.points }} pt</b>
+            </div>
+          }
+        </section>
+
+        <section class="round-track" aria-label="Progressione della partita">
+          <p class="eyebrow">IL VIAGGIO</p>
+          @for (target of roundTargets; track target; let i = $index) {
+            <div class="track-step" [class.active]="game().round === i + 1" [class.complete]="game().round > i + 1">
+              <span class="track-marker" aria-hidden="true">{{ game().round > i + 1 ? '✓' : '0' + (i + 1) }}</span>
+              <span class="track-copy"><strong>Orbita {{ i + 1 }}</strong><small>{{ target }} punti</small></span>
+              <span class="track-status" aria-hidden="true">{{ game().round > i + 1 ? '✦' : '·' }}</span>
+            </div>
+          }
+        </section>
+
+        <div class="save-note">
+          <span class="save-icon" aria-hidden="true">◷</span>
+          <p>La tua partita viene salvata automaticamente su questo dispositivo.</p>
+        </div>
+        <p class="side-footnote"><span aria-hidden="true">✧</span> Creato per giocare, progettato per tutti.</p>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <span>NEBULA DECK</span>
+    <span>Un gioco da esplorare, una carta alla volta.</span>
+    <button type="button" class="footer-help" (click)="openHelp()">Regole e comandi <span aria-hidden="true">↗</span></button>
+  </footer>
+
+  <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ game().message }}</p>
+
+  <dialog #helpDialog class="help-dialog" (cancel)="closeHelp()">
+    <div class="dialog-heading">
+      <div><p class="eyebrow">GUIDA DI BORDO</p><h2>Come si gioca</h2></div>
+      <button #closeHelpButtonRef class="icon-button dialog-close" type="button" (click)="closeHelp()" aria-label="Chiudi la guida">×</button>
+    </div>
+    <p class="dialog-intro">Gioca combinazioni di poker, accumula punti e attraversa tutte e tre le orbite.</p>
+    <ul class="rules-list">
+      <li>Scegli da una a cinque carte e giocale oppure scartale per pescarne di nuove.</li>
+      <li>Hai quattro mani e tre scarti per superare l’obiettivo di ogni orbita.</li>
+      <li>Le combinazioni valgono fiches più i valori delle carte, moltiplicati per il moltiplicatore.</li>
+      <li>Tra le orbite, usa i crediti nel negozio per acquistare jolly.</li>
+    </ul>
+    <h3>Punteggio delle combinazioni</h3>
+    <table class="score-chart">
+      <caption class="sr-only">Fiches e moltiplicatore delle combinazioni, dalla più alta alla più bassa</caption>
+      <thead><tr><th scope="col">Combinazione</th><th scope="col">Fiches</th><th scope="col">×</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Scala colore</th><td>100</td><td>8</td></tr>
+        <tr><th scope="row">Poker</th><td>60</td><td>7</td></tr>
+        <tr><th scope="row">Full</th><td>40</td><td>4</td></tr>
+        <tr><th scope="row">Colore</th><td>35</td><td>4</td></tr>
+        <tr><th scope="row">Scala</th><td>30</td><td>4</td></tr>
+        <tr><th scope="row">Tris</th><td>30</td><td>3</td></tr>
+        <tr><th scope="row">Doppia coppia</th><td>20</td><td>2</td></tr>
+        <tr><th scope="row">Coppia</th><td>10</td><td>2</td></tr>
+        <tr><th scope="row">Carta alta</th><td>5</td><td>1</td></tr>
+      </tbody>
+    </table>
+    <p class="score-example">Le carte numerate valgono il loro numero; fante, donna e re valgono 10, asso 11. Esempio: coppia di re, (10 + 10 + 10) × 2 = 60 punti.</p>
+    <h3>Comandi da tastiera</h3>
+    <dl class="shortcut-list">
+      <div><dt>← ↑ → ↓</dt><dd>Spostati tra le carte</dd></div>
+      <div><dt>Spazio</dt><dd>Seleziona o deseleziona una carta</dd></div>
+      <div><dt>Enter / P</dt><dd>Gioca le carte selezionate</dd></div>
+      <div><dt>X</dt><dd>Scarta le carte selezionate</dd></div>
+      <div><dt>R / S</dt><dd>Ordina per valore / seme</dd></div>
+      <div><dt>?</dt><dd>Apri questa guida · Esc per chiuderla</dd></div>
+    </dl>
+    <p class="dialog-note">I semi sono indicati anche a parole per chi usa uno screen reader. Riduci le animazioni dalle preferenze del tuo dispositivo.</p>
+  </dialog>
+</div>
